@@ -29,7 +29,7 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(CS, DC);
 
 Point food_spot = {0, 0};
 int score = 0;
-int snake_size = 1;
+int snake_size = sizeof(snake)/sizeof(snake[0]);
 int food_size = 8;
 int seg_size = 8; 
 int speed_delay = 100;
@@ -39,20 +39,34 @@ int current_direction = 0;
 int previous_direction = 0;
 
 void spawn_food() {
-  // Ensuring that the food spwans within the grid 
-  int cols = screen_width / seg_size;
-  int rows = (screen_height - 20)/ seg_size; //giving a header space at the top to not interfere with the score box.
-  
-  int x = (esp_random() % (cols - 2) + 1) * seg_size;
-  int y = (esp_random() % (rows - 2) + 1) * seg_size;
+  // Generating the coordinates in a grid like manner.
 
-  //Check to ensure food doesn't spawn on head
-  while (!snake.empty() && x == snake[0].x && y == snake[0].y) {
-    x = (esp_random() % (cols - 2) + 1) * seg_size;
-    y = (esp_random() % (rows - 2) + 1) * seg_size;
-  }
+  // Defining a safe grid area to not interfere with the score board
+  // And to not spawn halfway on the edges.
+  int min_x_grid = 1; 
+  int max_x_grid = (screen_width / seg_size) - 2; 
   
-  food_spot = {x, y};
+  int min_y_grid = (20 / seg_size) + 1;
+  int max_y_grid = (screen_height / seg_size) - 2;
+
+  // Check to ensure food doesn't spawn on the body of the snake.
+  bool on_snake = true;
+  while (on_snake) {
+      // 1. Generate new coordinates
+      int x = (esp_random() % (max_x_grid - min_x_grid + 1) + min_x_grid) * seg_size;
+      int y = (esp_random() % (max_y_grid - min_y_grid + 1) + min_y_grid) * seg_size;
+      food_spot = {x, y};
+
+      // 2. Check against the entire body
+      on_snake = false; 
+      for (int i = 0; i < snake_size; i++) {
+        // If spwaned on a body part, break and generate a new random location.
+          if (x == snake[i].x && y == snake[i].y) {
+              on_snake = true;
+              break; 
+          }
+      }
+  }
   tft.fillCircle(food_spot.x, food_spot.y, food_size, ILI9341_RED);
 }
 
@@ -66,6 +80,7 @@ void reset_game() {
   tft.fillRect(0,0,screen_width,screen_height, ILI9341_BLACK);
   
   snake.clear();
+
   // Start in middle
   snake.push_back({screen_width/2, screen_height/2});
   
@@ -134,7 +149,7 @@ void loop() {
   tft.fillRect(newX, newY, seg_size, seg_size, ILI9341_GREEN);
 
   // 6. Food Check
-  if (abs(newX - food_spot.x) < food_size + 5 && abs(newY - food_spot.y) < food_size + 5)
+  if (abs(newX - food_spot.x) < food_size + 5 && abs(newY - food_spot.y) < food_size + 1)
     // Adding a small flexibility to the collision window to detect collisions better.
    {
     score += 5;
